@@ -1,0 +1,2 @@
+-C /disk/scratch/s1470894/work/SpecCPU2006/benchspec/CPU2006/458.sjeng/run/run_base_ref_amd64-m64-gcc41-nn.0000
+-o ref.out -e ref.err ../run_base_ref_amd64-m64-gcc41-nn.0000/sjeng_base.amd64-m64-gcc41-nn ref.txt

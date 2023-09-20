@@ -1,0 +1,264 @@
+\documentclass[a4paper,12pt]{article}
+
+\usepackage{hyperref}
+
+\usepackage{authblk}
+\usepackage[sort]{natbib}
+\usepackage[utf8]{inputenc}
+\usepackage{fullpage}
+
+\usepackage{graphicx}
+
+\usepackage{graphics}
+
+
+\usepackage{url}
+\usepackage{textcomp}
+
+%\usepackage{algorithm2e}
+\usepackage{listings}
+\usepackage{color}
+\usepackage[dvipsnames]{xcolor}
+
+\usepackage{soul}
+
+%\renewcommand{\lstlistingname}{Code}
+\definecolor{lightgray}{rgb}{0.97,0.97,0.97}
+\definecolor{lightred}{rgb}{1,0.7,0.7}
+
+\newcommand\mycomment[3]{\PackageWarning{null}{There are still outstanding comments/issues from #2}\noindent{#1 {\bf \fbox{#2}} {\it#3}}}
+
+
+% white, black, red, green, blue, cyan, magenta, yellow.
+\newcommand{\hlc}[2][yellow]{ {\sethlcolor{#1} \hl{#2}} }
+\newcommand{\fix}[1]{\hlc[lightred]{#1}}
+\newcommand\boris[1]{{\color{blue}#1}}
+\newcommand\vijay[1]{\mycomment{\color{magenta}}{vijay}{#1}}
+
+\newcommand{\specialcell}[3][c]
+{\begin{tabular}[#1]{@{}#2@{}}#3\end{tabular}}
+
+
+
+\usepackage{indentfirst}
+
+
+\usepackage{epsfig,amsfonts,amsthm,amssymb,latexsym,amsmath}
+\usepackage{mathrsfs}
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{prop}[theorem]{Proposition}
+\newtheorem{conjecture}[theorem]{Conjecture}
+\newtheorem{defn}[theorem]{Definition}
+
+
+\newcommand{\etal}{et~al.}
+\newcommand{\protosection}[1]{\vspace{1ex}\noindent\textbf{#1}}
+
+%\linespread{0.96}
+
+\title{\textbf{Assignment 1: Understanding Branch
+Prediction}}
+\date{Due: Monday, February 20, 2017 at 4:00 PM}
+
+\author[]{Computer Architecture}
+
+\newcommand\FIXME[1]{\textcolor{red}{FIX:}\textcolor{red}{#1}}
+
+\begin{document}
+\maketitle
+
+%\begin{abstract}
+%Intentionally empty for this draft.
+%\end{abstract}
+
+%\section{Introduction}
+This assignment represents the first practical component of the Computer Architecture module. This practical contributes 12.5\% of the overall mark for the module. It consists of a programming exercise culminating in a brief written report. Assessment of this assignment will be based on the correctness of the code and the clarity of the report as explained below. The practical is to be solved individually. Please bear in mind the School of Informatics guidelines on Academic Misconduct. You must submit your solutions before the due date shown above. Follow the instructions provided in Section~\ref{instr}  for submission details. 
+
+In this assignment, you are required to explore Branch Prediction techniques using the Intel Pin simulation tool. You are strongly advised to commence working on the simulator as soon as possible. 
+
+\section{Overview}
+A branch predictor anticipates the outcome of a branch, before it is executed, to improve the instruction flow in the pipeline. In this assignment you will investigate the accuracy of various branch predictors. Towards this end, you have to implement three different branch predictors, as follows:
+\begin{enumerate}
+\item {\em Bimodal} Branch Predictor
+\item {\em 2-level} Global Branch Predictor
+\item {\em Tournament} Branch Predictor that combines 1 and 2
+\end{enumerate}
+%\pagebreak
+\subsection{PIN tool}
+
+%\boris{TODO: Please provide a brief 1-3 sentence overview of PIN and why we're using it.}
+Pin is a dynamic binary instrumentation engine that enables the creation of 
+dynamic analysis tools (e.g. architectural simulators). Pin intercepts program execution and provides an API that allows you to execute high-level C++ code in response to runtime  events like loads, stores, and branches. A Pin tool is a program which uses the API and specifies what has to happen in response. In this assignment, you are given an example Pin tool that intercepts branches and simulates an AlwaysTaken branch predictor. You will extend this tool to simulate three other branch predictors. 
+
+\noindent \textbf{The directions below apply to DICE machines. }
+
+The Pin tool and the benchmarks are available in a directory that can be accessed through a DICE machine. 
+%Note that you will have read-only access to this directory. 
+%There is a space that you can access through a DICE machine where the pin tool and the required benchmarks are already downloaded. \textbf{The students have read-only access to that space.} The space for this assignment is located in the directory /afs/inf.ed.ac.uk/group/teaching/car/assignment1 . 
+Inside that directory there is a README text file that contains guidelines on how to run the simulator with the benchmarks.
+
+\noindent To access the guidelines within the directory, type the following commands in the terminal:
+\begin{enumerate}
+\item \texttt{CAR\_ASSGN1\_PATH=/afs/inf.ed.ac.uk/group/teaching/car/assignment1}
+\item \texttt{cd \$CAR\_ASSGN1\_PATH} 
+\item \texttt{gedit README}
+\end{enumerate}
+
+\noindent The directory that contains the skeleton source code for the branch predictor \\ (\texttt{branch\_predictor\_example.cpp}) is further down that path, at:
+
+\vspace{0.05in}
+ \texttt{\$CAR\_ASSGN1\_PATH/tools/pin-3.0-76991-gcc-linux/source/tools/BPExample/}
+
+\vspace{0.05in}
+\noindent When the Pin tool runs \texttt{branch\_predictor\_example.cpp}, it requires a benchmark program (along with its arguments) to be given as the last command line arguments. The Pin tool runs the benchmark and while running it, passes all conditional branches to the simulated branch predictor. The given predictor inside \texttt{branch\_predictor\_example.cpp} is called AlwaysTakenBranchPredictor and predicts Taken for all of the branches. 
+
+Once Pin exits, it will generate a set of statistics for the simulated branch predictor in a file \texttt{BP\_stats.out}.
+%a text document, with default name BP\_stats.out, which contains statistics about the success rate of the simulated branch predictor, will be generated inside the folder BPExample. 
+
+The branch predictor simulator, in the file \texttt{branch\_predictor\_example.cpp}, allows for 3 different command line arguments: 
+\begin{enumerate}
+    \item The kind of predictor to be simulated, which include: Always Taken, Bimodal, 2-level, Tournament. The default predictor is Always Taken. To run the Always Taken branch predictor simulator, give this command line argument type: \texttt{-BP\_type always\_taken}
+    
+    \item The number of entries in the PHT (pattern history table) of the Predictor. Default is 1024. To run the simulator with 1024 PHT entries, give this command line argument type: \texttt{-numBPEntries 1024}
+    
+    \item The name of the output file to be generated,which has a default value of \texttt{BP\_stats.out}. To generate an output file called MyOutput.out, give this command line argument type: \texttt{-o MyOutput.out}
+\end{enumerate}
+ 
+ In the path \texttt{\$CAR\_ASSGN1\_PATH/benchmarks} there are 3 different benchmark programs (Gromacs, Gobmk, Sjeng) from the SPEC2000 benchmark suite. You must run your experiments with all 3 benchmarks, for the 3 requested predictors, with 3 different PHT sizes. In total, you will run 27 different experiments.
+
+ The guidelines inside the README text  file contain more information about how exactly to run the branch predictor simulator and how to use the command line arguments.
+
+\subsection{Branch Predictor Parameters}
+
+The experiments must be run with the following three different sizes for the Pattern History Tables (PHTs): 128, 1024, and 4096 entries. Note that you must assess all three PHT sizes for each of the different branch predictors. 
+
+Each PHT entry is logically comprised of 2-bit saturating counters as explained in the lecture slides. The counters must be initialized to 0. Remember that you are writing a simulator in a high-level language; you are {\em not} designing actual circuits. As such, you may use any data types for the counters (and other program variables). Regardless of the data type you use, it must behave like a saturating 2-bit counter. 
+
+\subsubsection*{Bimodal Branch predictor}
+
+\begin{itemize}
+\item  The PHT is indexed with the least significant bits of the Program Counter of the branch instruction
+\end{itemize} 
+
+\subsubsection*{2-level Global Branch Predictor}
+\begin{itemize}
+\item The Global History Register is composed of as many bits as  necessary to index the PHT. For example, if the PHT contains 1024 entries, then the GHR should be 10 bits long. These 10 bits contain the outcomes of the last 10 branches, with 0 denoting {\em not taken} and 1 denoting {\em taken}. GHR should be initialized to 0. The earlier comment about the data types in your simulator applies here as well. 
+
+\end{itemize}
+
+\subsubsection*{Tournament Branch Predictor}
+\begin{itemize}
+\item The Tournament predictor is composed of three different predictors: the Bimodal, 2-level Global predictor, and a {\em meta-predictor} that selects between the Bimodal or the 2-level predictor to provide the actual prediction of the branch outcome. 
+\item The Experiment must be run with PHTs of 3 different sizes. In each experiment the PHTs of the Bimodal Predictor and the 2-level Predictor must all have the same size. I.e. when the meta-predictor PHT is 1024 entries then the 2-level Predictor PHT is also 1024 entries and the Bimodal Predictor PHT is also 1024 entries.
+\item The PHT of the meta-predictor is indexed with the Global History Register.
+\item In the meta-predictor, when the prediction bit (i.e. the MSB) of the saturating counter is 0, the Bimodal predictor is selected to supply the prediction. When the MSB is 1, the 2-level predictor is selected.  
+%set to 1, that means that the 2-level prediction should be selected. When the prediction bit is set to 0 then the Bimodal prediction should be selected. %Therefore the Tournament Predictor yields a metaprediction while the 1-level and 2-level predictors yield predictions.
+ 
+ 
+% ---------------- TOTAL UPDATE POLICY--------------------------
+ \item The Tournament predictor will follow a total update policy. Both the Bimodal and the 2-level predictors will be trained after each branch is resolved. After a correct prediction the relevant meta-predictor entry must be strengthened. After a misprediction, the relevant meta-predictor entry must be weakened {\em only if the predictor that was not chosen was correct}. If both the Bimodal and the 2-level predictors were incorrect, there is no update to the meta-predictor. 
+ \subitem{-} To strengthen a saturating counter means to increment it, if its prediction bit is '1', and decrement it if the prediction bit is '0'. 
+ \subitem{-} To weaken a saturating counter means to decrement it, if its prediction bit is '1', and increment it if the prediction bit is '0'. 
+ \item Since the underlying behavior of the Bimodal and 2-level predictors is unmodified in the Tournament scheme, you may choose to use your existing implementations of Bimodal and 2-level predictors to implement the Tournament predictor. 
+  
+ 
+% --------PARTIAL UPDATE POLICY---------------------------
+%\item Training with the Tournament predictor is not as straight forward as the previous two predictors. When multiple predictors are combined, partial updates must be performed when training, to maintain the anti-aliasing properties. You should implement the training as following:
+%\subitem{(i)} \textbf{on a correct prediction:}
+% \subitem{-} when both predictors agree do not update
+% \subitem{-}  otherwise strengthen the Tournament PHT entry if the two predictions were different and strengthen the correct prediction on the correct predictor.
+% \subitem{(ii)} \textbf{on a misprediction:}
+% \subitem{-} when the two predictions were different, first update the chooser, then recompute the overall prediction according to the new value of the chooser. If the prediction when recomputing is correct then strengthen the correct predictor. Otherwise update all the predictors.
+% \subitem{-} when the two predictions were the same, update all the predictors.
+ 
+ 
+ %Hint: When training, modify the saturating counters of the relevant Tournament PHT entry and the entry of one of the Predictors . Avoid training both the Bimodal Predictor and the 2-level Predictor after a branch, even if they issued the same prediction. 
+ \end{itemize}
+
+
+\subsection{Simulator infrastructure} \label{guide}
+The three requested predictors must all be implemented inside the \texttt{branch\_predictor \_example.cpp} file. Inside the file, you must create a class with an appropriate name for each predictor. The file \texttt{branch\_predictor\_example.cpp} includes comments and guidelines on how you must create your classes and the appropriate member functions. As an example, an AlwaysTaken predictor is already implemented. You should start with the same code as the one for the AlwaysTaken predictor and modify it to implement new functionality for each specific predictor type.
+
+For the purpose of this assignment you can ignore the Branch Target Buffer(BTB) (i.e. the implementation of a BTB is not needed). The simulated predictors must only generate a prediction without specifying the target address of the branch. Additionally the predictors do not need to identify whether an instruction is a conditional branch; they can assume that every instruction is a conditional branch, because the given code feeds only conditional branches into the prediction functions.
+
+\textbf{The contents of the file branch\_predictor\_example.cpp should be modified only as the above guidelines specify, and not in any other way. } 
+
+%\vijay{If it is possible and makes sense to create all these classes for the students (perhaps within the same file) it will be good and make the students focus on implementing the predictors. }
+%The new predictors must be implemented in the same way the AlwaysTrue predictor is implemented. The classes must inherit from the class \textit{BranchPredictorInterface} and must override the pure virtual functions \textit{getPrediction()}and \textit{train()}. Add your code in function \textit{main()},  under the comment: 
+
+%\texttt{/* create a branch predictor object of requested type */}
+
+ 
+
+%\vijay{The following seems like documentation of the code: they belong in the source code as comments. You can then ask them to refer to the comments in the source code. }
+ %\noindent The function \textit{KnobBranchPredictorType.Value()} returns the command line argument that specifies the kind of predictor you create(\textit{Bimodal, TwoLevel, Tournament}). The member function \textit{KnobNumberOfEntriesInBranchPredictor.Value()} returns the command line argument that specifies the number of PHT entries of the predictor. In the example the object \textit{branchPredictor} is of static type \textit{BranchPredictorInterface} and is instantiated with dynamic type \textit{AlwaysTaken}. In the same fashion, the student must write code such that, if the command line argument is \textit{Bimodal}, the object \textit{branchPredictor} must be instantiated with dynamic type \textit{Bimodal} (which is a class the student must define).
+ 
+
+ %The function \textit{getPrediction()} receives the address of the branch(\textit{branchIP}) and returns a boolean (True for Taken and False for Not Taken), which represents the prediction. The function \textit{train()} receives the address of the branch(\textit{branchIP}) and its outcome, and it does not return anything (i.e. it is void). Note that in the case of the 2-level Global Predictor the function \textit{getPrediction()} does not have any use for the branch address. The source file branch\_predictor\_example.cpp creates a text file called BP\_stats.out and prints inside that file the stats of the implemented branch predictor.
+
+%\boris{Is there a BTB implemented in the code? This entire paragraph is extremely confusing. What does it mean for them to ``assume knowledge of whether the instruction is a branch...'' How can they assume that?}
+%\vijay{The way I understand there is no BTB in the picture at all -- in which case why not simply say: ignore the BTB for the purpose of this assignment.} 
+
+
+
+\subsection{Reference results}
+The folder BPexample contains a text file called results. That text file must be filled by the student with the misprediction rates for all combinations of benchmark, type of predictor and PHT size. The misprediction rate must be the same as the one visible in the output file of the branch\_predictor\_example.cpp (e.g. BP\_stats.out). Report your results with 3 digits after the decimal point. Some reference results are listed below: \\
+
+\noindent Gromacs Bimodal 128 : 0.338\\
+Gobmk Twolevel 1024 : 0.257\\
+Sjeng Tournament 4096 : 0.214\\
+
+\textbf{Note that all 27 entries of the text file must be completed.} The results file must be submitted along with the source files.
+
+
+
+
+\section{Marking Scheme}
+
+\noindent
+\textbf{ Correctness (80 marks)}. Includes code functionality and  quality for the following 3 predictors:%\vijay{What do you mean by this? Does it refer to the testing they must perform? Do we plan to test it with a new program?} \fix{we want functionality and quality, we want them to have tested their code} 
+
+\begin{enumerate}
+
+\item \textbf{Bimodal Branch Predictor (20 marks)}
+\item \textbf{2-level Global Branch Predictor (30 marks)}
+\item \textbf{Tournament Branch Predictor (30 marks)}
+
+\end{enumerate}
+\noindent
+\textbf{Report (20 marks)}. You should write a short report (max 2 pages) on how you have
+implemented each predictor and where the predictor code is (source file, line numbers).  In the report you should answer the following questions 
+\begin{itemize}
+\item Why the different predictors yield different (or similar) results
+\item Why and how,  varying the size of the PHT impacts (or not) the misprediction rate
+\item Are the results what you expected and why (or why not)
+\end{itemize}
+
+
+\section{Format of your submission} ~\label{instr}
+Your submission should clearly indicate (in both the report and the code) which branch
+prediction techniques you have simulated completely and which you have only partially
+completed. Please put comments in the code that you add to make it easy for the
+markers to understand. Remember that your simulator will be compiled/executed
+on a DICE machine, so you must ensure it works on DICE.
+Submit an archive of your Branch Predictors source code, along with the results text file, and a soft copy of your report as follows,
+using the DICE environment:\\
+
+\texttt{\$ submit car 1 branchPredictors.tar.gz report.pdf}
+
+\section{Similarity Checking and Academic Misconduct}
+You must submit your own work. Any code that is not written by you must be clearly identified and explained through comments at the top of your files. Failure to do so is plagiarism. Note that you are required to take reasonable measures to protect your assessed work from unauthorised access. Detailed guidelines on what constitutes plagiarism and other issues of academic misconduct can be found at: 
+\vspace{0.05in}\\ 
+\url{http://web.inf.ed.ac.uk/infweb/admin/policies/academic-misconduct}
+\vspace{0.05in}\\
+All submitted code is checked for similarity with other submissions using software tools such as MOSS. These tools have been very effective in the past at finding similarities and are not fooled by name changes and reordering of code blocks.
+
+
+\section{Reporting Problems}
+Send an email to Artemy.Margaritov@ed.ac.uk \textbf{and} Vasilis.Gavrielatos@ed.ac.uk if you have any issues
+regarding the assignment.
+
+\end{document}

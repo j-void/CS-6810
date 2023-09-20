@@ -1,0 +1,75 @@
+Setup and Installation of BPExample with the Pin Tool :
+
+To compile this file please follow the instructions below.
+
+###########################################################################
+
+# How to launch benchmarks?
+Firstly, source - 
+source $HOME/car/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/car_asn1_files/shrc-set_env_vars-for-students
+
+The following are commands to launch a benchmark:
+
+1. Gobmk
+$GOBMK_PATH/gobmk_base.amd64-m64-gcc41-nn --quiet --mode gtp < $GOBMK_PATH/13x13.tst > gobmk.out
+
+2. Sjeng
+$SJENG_PATH/sjeng_base.amd64-m64-gcc41-nn $SJENG_PATH/ref.txt > sjeng.out
+
+3. Matrix Multiplication
+$MATRIX_MUL_PATH/matrix_multiplication.exe > matrix_mul.out
+
+###########################################################################
+
+# How to compile the code and use Pin?
+1. source $HOME/car/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/car_asn1_files/shrc-set_env_vars-for-students
+
+2. Compile your tool (with a branch predictor) 
+A Pin tool is a dynamic shared library (file with .so filename extension).
+
+NOTE: You don't have write permissions on CAR shared filespace space. 
+      In order to compile your code, please copy the whole pin directory to your home directory. 
+
+make obj-intel64/branch_predictor_example.so TARGET=intel64
+
+Last command will create branch_predictor_example.so in the directory $BP_EXAMPLE/obj-intel64.
+The file branch_predictor_example.so is a tool which implements always taken branch predictor.
+
+To open a file you just compiled use
+vi $BP_Example/branch_predictor_example.cpp
+
+In order to create your own tool, you need to change the file $BP_EXAMPLE/branch_predictor_example.cpp
+and recompile the tool with the following command:
+make obj-intel64/branch_predictor_example.so TARGET=intel64
+After this the tool $BP_EXAMPLE/obj-intel64/branch_predictor_example.so will be updated with your changes.
+NOTE: 'make' should be launched from $BP_EXAMPLE directory
+
+3. Run Pin with the tool 
+pin -t <tool> <tool options> -- <benchmark>
+
+Any of three benchmarks defined above can be used as a <benchmark> here. For example
+
+$PIN -t $BP_Example/obj-intel64/branch_predictor_example.so -BP_type always_taken -o stats_always_taken.out \
+-- $SJENG_PATH/sjeng_base.amd64-m64-gcc41-nn $SJENG_PATH/ref.txt > sjeng.out
+
+$PIN -t $BP_Example/obj-intel64/branch_predictor_example.so -BP_type local -num_BP_entries  128 -o stats_sjeng_local.out \
+-- $SJENG_PATH/sjeng_base.amd64-m64-gcc41-nn $SJENG_PATH/ref.txt > sjeng.out
+
+$PIN -t $BP_Example/obj-intel64/branch_predictor_example.so -BP_type gshare -num_BP_entries 4096 -o stats_matrix_mul_gshare.out \
+-- $MATRIX_MUL_PATH/matrix_multiplication.exe > matrix_mul.out
+
+$PIN -t $BP_Example/obj-intel64/branch_predictor_example.so -BP_type local -num_BP_entries  128 -o stats_gobmk_local.out \
+-- $GOBMK_PATH/gobmk_base.amd64-m64-gcc41-nn --quiet --mode gtp < $GOBMK_PATH/13x13.tst > gobmk.out
+
+###########################################################################
+
+How to submit your code and results? 
+
+1. Submit you work
+   NOTE: Make sure your code works on CADE.
+
+   - Submit a zip file in CANVAS also attaching results for all benchmarks in pdf. 
+   - Make sure that .cpp file inside the /BPExample works fine for all benchmarks.
+
+
+###########################################################################

@@ -1,0 +1,12 @@
+setenv PATH $HOME/car/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/car_asn1_files/tools/pin-3.0-76991-gcc-linux:$PATH
+
+setenv GROMACS_PATH $HOME/car/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/car_asn1_files/benchmarks/435.gromacs/run_base_ref_amd64-m64-gcc41-nn.0000 
+setenv GOBMK_PATH $HOME/car/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/car_asn1_files/benchmarks/445.gobmk/run_base_ref_amd64-m64-gcc41-nn.0000
+setenv MATRIX_MUL_PATH $HOME/car/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/car_asn1_files/benchmarks
+setenv PIN $HOME/car/pin-3.28-98749-g6643ecee5-gcc-linux/pin 
+setenv CAR $HOME/car/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/car_asn1_files/
+setenv BP_Example $HOME/car/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/BPExample
+setenv SJENG_PATH $HOME/car/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/car_asn1_files/benchmarks/458.sjeng/run_base_ref_amd64-m64-gcc41-nn.0000  
+setenv MICRO_BENCH3 $HOME/car/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/BPExample/
+
+echo "Environment has been set for using Pin."
