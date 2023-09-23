@@ -40,28 +40,220 @@ public:
 
 //------------------------------------------------------------------------------
 //##############################################################################
-/*
- * Insert your changes below here...
- *
- * Put your branch predictor implementation here
- *
- * For example:
- * class LocalBranchPredictor : public BranchPredictorInterface {
- *
- *   ***put private members for Local branch predictor here
- *
- *   public:
- *	   virtual bool getPrediction(ADDRINT branchPC) {
- *	  	 ***put your implementation here
- *	   }
- *	   virtual void train(ADDRINT branchPC, bool branchWasTaken) {
- *	     ***put your implementation here
- *	   }
- * }
- *
- * You also need to create an object of branch predictor class in main()
- * (i.e. at line 193 in the original unmodified version of this file).
- */
+
+class LocalBranchPredictor : public BranchPredictorInterface {
+
+  private:
+    UINT64 bp_entries;
+    UINT64 lhrs[128];
+    string* pht_array;
+   
+  public:
+    LocalBranchPredictor(UINT64 numberOfEntries) {
+      bp_entries = numberOfEntries;
+      for (UINT64 i = 0; i < 128; i++) {
+        lhrs[i] = 0;
+      }
+      pht_array = new string[numberOfEntries];
+      for (UINT64 i = 0; i < numberOfEntries; i++) {
+        pht_array[i] = "11";
+      }
+    };
+    virtual bool getPrediction(ADDRINT branchPC) {
+      UINT64 lhr_addr = branchPC % 128;
+      UINT64 pht_addr = lhrs[lhr_addr];
+      string pht_value = pht_array[pht_addr];
+      if (pht_value == "11" || pht_value == "10") {
+        return true;
+      } else {
+        return false;
+      }
+    }
+    virtual void train(ADDRINT branchPC, bool branchWasTaken) {
+      UINT64 lhr_addr = branchPC % 128;
+      UINT64 pht_addr = lhrs[lhr_addr];
+      string pht_value = pht_array[pht_addr];
+
+      if (pht_value=="11") {
+        if (branchWasTaken == false) {
+            pht_array[pht_addr] = "10";
+        }
+      } else if (pht_value=="10") {
+        if (branchWasTaken == true) {
+          pht_array[pht_addr] = "11";
+        } else {
+          pht_array[pht_addr] = "01";
+        }
+      } else if (pht_value=="01") {
+        if (branchWasTaken == true) {
+          pht_array[pht_addr] = "10";
+        } else {
+          pht_array[pht_addr] = "00";
+        }
+      } else if (pht_value=="00") {
+        if (branchWasTaken == true) {
+          pht_array[pht_addr] = "01";
+        } else {
+          pht_array[pht_addr] = "00";
+        }
+      }
+      
+      UINT64 pht_addr_new;
+      if (branchWasTaken == false) {
+          pht_addr_new = pht_addr * 2;
+      } else {
+          pht_addr_new = (pht_addr * 2) + 1;
+      }
+      if (pht_addr_new >= bp_entries) {
+          pht_addr_new = pht_addr_new - bp_entries;
+      }
+      lhrs[lhr_addr] = pht_addr_new;
+    }
+};
+
+class GshareBranchPredictor : public BranchPredictorInterface {
+
+  private:
+    UINT64 bp_entries;
+    UINT64 ghr;
+    string* pht_array;
+   
+  public:
+    GshareBranchPredictor(UINT64 numberOfEntries) {
+      bp_entries = numberOfEntries;
+      ghr = 0;
+      pht_array = new string[numberOfEntries];
+      for (UINT64 i = 0; i < numberOfEntries; i++) {
+        pht_array[i] = "11";
+      }
+    };
+    virtual bool getPrediction(ADDRINT branchPC) {
+      UINT64 pc_lsb = branchPC % bp_entries;
+      UINT64 pht_addr = pc_lsb ^ ghr;
+      string pht_value = pht_array[pht_addr];
+      if (pht_value == "11" || pht_value == "10") {
+        return true;
+      } else {
+        return false;
+      }
+    }
+    virtual void train(ADDRINT branchPC, bool branchWasTaken) {
+      UINT64 pc_lsb = branchPC % bp_entries;
+      UINT64 pht_addr = pc_lsb ^ ghr;
+      string pht_value = pht_array[pht_addr];
+
+      if (pht_value=="11") {
+        if (branchWasTaken == false) {
+            pht_array[pht_addr] = "10";
+        }
+      } else if (pht_value=="10") {
+        if (branchWasTaken == true) {
+          pht_array[pht_addr] = "11";
+        } else {
+          pht_array[pht_addr] = "01";
+        }
+      } else if (pht_value=="01") {
+        if (branchWasTaken == true) {
+          pht_array[pht_addr] = "10";
+        } else {
+          pht_array[pht_addr] = "00";
+        }
+      } else if (pht_value=="00") {
+        if (branchWasTaken == true) {
+          pht_array[pht_addr] = "01";
+        } else {
+          pht_array[pht_addr] = "00";
+        }
+      }
+      
+      UINT64 ghr_new;
+      if (branchWasTaken == false) {
+          ghr_new = ghr * 2;
+      } else {
+          ghr_new = (ghr * 2) + 1;
+      }
+      if (ghr_new >= bp_entries) {
+          ghr_new = ghr_new - bp_entries;
+      }
+      ghr = ghr_new;
+    }
+};
+
+
+class TournamentBranchPredictor : public BranchPredictorInterface {
+
+  private:
+    UINT64 bp_entries;
+    UINT64 ghr;
+    string* pht_array;
+    LocalBranchPredictor* lb_predictor;
+    GshareBranchPredictor* gsb_predictor;
+   
+  public:
+    TournamentBranchPredictor(UINT64 numberOfEntries) {
+      bp_entries = numberOfEntries;
+
+      lb_predictor = new LocalBranchPredictor(numberOfEntries);
+      gsb_predictor = new GshareBranchPredictor(numberOfEntries);
+
+      pht_array = new string[numberOfEntries];
+      for (UINT64 i = 0; i < numberOfEntries; i++) {
+        pht_array[i] = "11";
+      }
+    };
+    virtual bool getPrediction(ADDRINT branchPC) {
+      UINT64 pht_addr = branchPC % bp_entries;
+      string pht_value = pht_array[pht_addr];
+      if (pht_value == "11" || pht_value == "10") {
+        return gsb_predictor->getPrediction(branchPC);
+      } else {
+        return lb_predictor->getPrediction(branchPC);
+      }
+    }
+    virtual void train(ADDRINT branchPC, bool branchWasTaken) {
+      UINT64 pht_addr = branchPC % bp_entries;
+      string pht_value = pht_array[pht_addr];
+
+      bool lb_pred = lb_predictor->getPrediction(branchPC);
+      bool gsb_pred = gsb_predictor->getPrediction(branchPC);
+
+      // if (lb_pred != branchWasTaken && gsb_pred != branchWasTaken) {
+      //   return;
+      // }
+
+      if (pht_value=="11") {
+        if (gsb_pred != branchWasTaken && lb_pred == branchWasTaken) {
+            pht_array[pht_addr] = "10";
+        }
+      } else if (pht_value=="10") {
+        if (gsb_pred == branchWasTaken) {
+          pht_array[pht_addr] = "11";
+        } else if (gsb_pred != branchWasTaken && lb_pred == branchWasTaken) {
+          pht_array[pht_addr] = "01";
+        }
+      } else if (pht_value=="01") {
+        if (lb_pred == branchWasTaken) {
+          pht_array[pht_addr] = "00";
+        } else if (lb_pred != branchWasTaken && gsb_pred == branchWasTaken) {
+          pht_array[pht_addr] = "10";
+        }
+      } else if (pht_value=="00") {
+        if (branchWasTaken == true) {
+          pht_array[pht_addr] = "00";
+        } else if (lb_pred != branchWasTaken && gsb_pred == branchWasTaken) {
+          pht_array[pht_addr] = "01";
+        }
+      }
+      
+      lb_predictor->train(branchPC, branchWasTaken);
+      gsb_predictor->train(branchPC, branchWasTaken);
+
+    }
+};
+
+//  * You also need to create an object of branch predictor class in main()
+//  * (i.e. at line 193 in the original unmodified version of this file).
+
 //##############################################################################
 //------------------------------------------------------------------------------
 
@@ -221,18 +413,15 @@ int main(int argc, char * argv[]) {
 //------------------------------------------------------------------------------
   else if (KnobBranchPredictorType.Value() == "local") {
   	 std::cerr << "Using Local BP." << std::endl;
-/* Uncomment when you have implemented a Local branch predictor */
-     // branchPredictor = new LocalBranchPredictor(KnobNumberOfEntriesInBranchPredictor.Value());
+     branchPredictor = new LocalBranchPredictor(KnobNumberOfEntriesInBranchPredictor.Value());
   }
   else if (KnobBranchPredictorType.Value() == "gshare") {
   	 std::cerr << "Using Gshare BP."<< std::endl;
-/* Uncomment when you have implemented a Gshare branch predictor */
-    // branchPredictor = new GshareBranchPredictor(KnobNumberOfEntriesInBranchPredictor.Value());
+    branchPredictor = new GshareBranchPredictor(KnobNumberOfEntriesInBranchPredictor.Value());
   }
   else if (KnobBranchPredictorType.Value() == "tournament") {
   	 std::cerr << "Using Tournament BP." << std::endl;
-/* Uncomment when you have implemented a Tournament branch predictor */
-    // branchPredictor = new TournamentBranchPredictor(KnobNumberOfEntriesInBranchPredictor.Value());
+    branchPredictor = new TournamentBranchPredictor(KnobNumberOfEntriesInBranchPredictor.Value());
   }
   else {
     std::cerr << "Error: No such type of branch predictor. Simulation will be terminated." << std::endl;
