@@ -246,32 +246,37 @@ class TournamentBranchPredictor : public BranchPredictorInterface {
       // get the output of gshare branch predictor 
       bool gsb_pred = gsb_predictor->getPrediction(branchPC);
 
-      // if (lb_pred != branchWasTaken && gsb_pred != branchWasTaken) { // ignore 
-      //   return;
-      // }
+      // if both predictors as incorrect then no changes to PHT
+      if (lb_pred != branchWasTaken && gsb_pred != branchWasTaken) {
+        lb_predictor->train(branchPC, branchWasTaken);
+        gsb_predictor->train(branchPC, branchWasTaken);
+        return;
+      }
 
       // update the pht table based on whether the branch was taken and it corresponds to the correct branch predictor used 
       // see report for more detail and flow chart of logic
-      if (pht_value=="11") {
-        if (gsb_pred != branchWasTaken && lb_pred == branchWasTaken) {
+      if (pht_value=="11") { // if gshare choosen
+        if (gsb_pred == branchWasTaken) { // if gshare prediction is correct
+          pht_array[pht_addr] = "11"; 
+        } else if (gsb_pred != branchWasTaken && lb_pred == branchWasTaken) { // if gshare prediction in false but local is correct
             pht_array[pht_addr] = "10";
         }
-      } else if (pht_value=="10") {
-        if (gsb_pred == branchWasTaken) {
+      } else if (pht_value=="10") { // if gshare choosen
+        if (gsb_pred == branchWasTaken) { // if gshare prediction is correct
           pht_array[pht_addr] = "11";
-        } else if (gsb_pred != branchWasTaken && lb_pred == branchWasTaken) {
+        } else if (gsb_pred != branchWasTaken && lb_pred == branchWasTaken) { // if gshare prediction in false but local is correct
           pht_array[pht_addr] = "01";
         }
-      } else if (pht_value=="01") {
-        if (lb_pred == branchWasTaken) {
+      } else if (pht_value=="01") { // if local choosen
+        if (lb_pred == branchWasTaken) { // if local prediction is correct
           pht_array[pht_addr] = "00";
-        } else if (lb_pred != branchWasTaken && gsb_pred == branchWasTaken) {
+        } else if (lb_pred != branchWasTaken && gsb_pred == branchWasTaken) { // if local prediction in false but gshare is correct
           pht_array[pht_addr] = "10";
         }
-      } else if (pht_value=="00") {
-        if (branchWasTaken == true) {
-          pht_array[pht_addr] = "00";
-        } else if (lb_pred != branchWasTaken && gsb_pred == branchWasTaken) {
+      } else if (pht_value=="00") { // if local choosen
+        if (lb_pred == branchWasTaken) { // if local prediction is correct
+          pht_array[pht_addr] = "00"; 
+        } else if (lb_pred != branchWasTaken && gsb_pred == branchWasTaken) { // if local prediction in false but gshare is correct
           pht_array[pht_addr] = "01";
         }
       }
