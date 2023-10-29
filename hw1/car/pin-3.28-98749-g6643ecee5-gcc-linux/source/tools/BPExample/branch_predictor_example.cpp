@@ -40,28 +40,256 @@ public:
 
 //------------------------------------------------------------------------------
 //##############################################################################
-/*
- * Insert your changes below here...
- *
- * Put your branch predictor implementation here
- *
- * For example:
- * class LocalBranchPredictor : public BranchPredictorInterface {
- *
- *   ***put private members for Local branch predictor here
- *
- *   public:
- *	   virtual bool getPrediction(ADDRINT branchPC) {
- *	  	 ***put your implementation here
- *	   }
- *	   virtual void train(ADDRINT branchPC, bool branchWasTaken) {
- *	     ***put your implementation here
- *	   }
- * }
- *
- * You also need to create an object of branch predictor class in main()
- * (i.e. at line 193 in the original unmodified version of this file).
- */
+
+class LocalBranchPredictor : public BranchPredictorInterface {
+
+  private:
+    UINT64 bp_entries; // branch prediction entries
+    UINT64 lhrs[128]; // local history registers
+    string* pht_array; // pattern history table
+   
+  public:
+    LocalBranchPredictor(UINT64 numberOfEntries) {
+      bp_entries = numberOfEntries;
+      // Initialize the local history registers to 0
+      for (UINT64 i = 0; i < 128; i++) {
+        lhrs[i] = 0;
+      }
+      // intialize the pattern history table same size as branch preditor entries and set initial value to "11"
+      pht_array = new string[numberOfEntries];
+      for (UINT64 i = 0; i < numberOfEntries; i++) {
+        pht_array[i] = "11";
+      }
+    };
+    virtual bool getPrediction(ADDRINT branchPC) {
+      // get the lhr address using last 7 bits or branch program counter
+      UINT64 lhr_addr = branchPC % 128;
+      // use the value in lhr table to get the address of pht
+      UINT64 pht_addr = lhrs[lhr_addr];
+      // get the value inside the specific entry of pht table
+      string pht_value = pht_array[pht_addr];
+      // return the decision based on 2 bit branch predictor logic
+      if (pht_value == "11" || pht_value == "10") {
+        return true;
+      } else {
+        return false;
+      }
+    }
+    virtual void train(ADDRINT branchPC, bool branchWasTaken) {
+      // get the lhr address using last 7 bits or branch program counter
+      UINT64 lhr_addr = branchPC % 128;
+      // use the value in lhr table to get the address of pht
+      UINT64 pht_addr = lhrs[lhr_addr];
+      // get the value inside the specific entry of pht table
+      string pht_value = pht_array[pht_addr];
+
+      // update the value of pht table based on whether the branch was actually taken and the predicted value in pht table
+      if (pht_value=="11") {
+        if (branchWasTaken == false) {
+            pht_array[pht_addr] = "10";
+        }
+      } else if (pht_value=="10") {
+        if (branchWasTaken == true) {
+          pht_array[pht_addr] = "11";
+        } else {
+          pht_array[pht_addr] = "01";
+        }
+      } else if (pht_value=="01") {
+        if (branchWasTaken == true) {
+          pht_array[pht_addr] = "10";
+        } else {
+          pht_array[pht_addr] = "00";
+        }
+      } else if (pht_value=="00") {
+        if (branchWasTaken == true) {
+          pht_array[pht_addr] = "01";
+        } else {
+          pht_array[pht_addr] = "00";
+        }
+      }
+      // also update the value in lhr table, update the history of last n runs whether branch was predited or not
+      UINT64 pht_addr_new;
+      if (branchWasTaken == false) {
+          pht_addr_new = pht_addr * 2;
+      } else {
+          pht_addr_new = (pht_addr * 2) + 1;
+      }
+      // as pht table as size of bp_entries, check and update it accordigly so it doesn't exceed range
+      if (pht_addr_new >= bp_entries) {
+          pht_addr_new = pht_addr_new - bp_entries;
+      }
+      lhrs[lhr_addr] = pht_addr_new;
+    }
+};
+
+class GshareBranchPredictor : public BranchPredictorInterface {
+
+  private:
+    UINT64 bp_entries; // branch prediction entries
+    UINT64 ghr; // global history register
+    string* pht_array; // pattern history table
+   
+  public:
+    GshareBranchPredictor(UINT64 numberOfEntries) {
+      bp_entries = numberOfEntries;
+      // initialize the global history register to 0
+      ghr = 0;
+      // intialize the pattern history table same size as branch preditor entries and set initial value to "11"
+      pht_array = new string[numberOfEntries];
+      for (UINT64 i = 0; i < numberOfEntries; i++) {
+        pht_array[i] = "11";
+      }
+    };
+    virtual bool getPrediction(ADDRINT branchPC) {
+      // get last n bits or branch program counter based on branch predictor entries
+      UINT64 pc_lsb = branchPC % bp_entries;
+      // xor the lase n bits of program counter with global history register to get the address on pht table
+      UINT64 pht_addr = pc_lsb ^ ghr;
+      // get the value inside the specific entry of pht table
+      string pht_value = pht_array[pht_addr];
+      // return the decision based on 2 bit branch predictor logic
+      if (pht_value == "11" || pht_value == "10") {
+        return true;
+      } else {
+        return false;
+      }
+    }
+    virtual void train(ADDRINT branchPC, bool branchWasTaken) {
+      // get last n bits or branch program counter based on branch predictor entries
+      UINT64 pc_lsb = branchPC % bp_entries;
+      // xor the lase n bits of program counter with global history register to get the address on pht table
+      UINT64 pht_addr = pc_lsb ^ ghr;
+      // get the value inside the specific entry of pht table
+      string pht_value = pht_array[pht_addr];
+
+      // update the value of pht table based on whether the branch was actually taken and the predicted value in pht table
+      if (pht_value=="11") {
+        if (branchWasTaken == false) {
+            pht_array[pht_addr] = "10";
+        }
+      } else if (pht_value=="10") {
+        if (branchWasTaken == true) {
+          pht_array[pht_addr] = "11";
+        } else {
+          pht_array[pht_addr] = "01";
+        }
+      } else if (pht_value=="01") {
+        if (branchWasTaken == true) {
+          pht_array[pht_addr] = "10";
+        } else {
+          pht_array[pht_addr] = "00";
+        }
+      } else if (pht_value=="00") {
+        if (branchWasTaken == true) {
+          pht_array[pht_addr] = "01";
+        } else {
+          pht_array[pht_addr] = "00";
+        }
+      }
+      
+      // also update the value in global history regsiter, update the history of last n runs whether branch was predited or not
+      UINT64 ghr_new;
+      if (branchWasTaken == false) {
+          ghr_new = ghr * 2;
+      } else {
+          ghr_new = (ghr * 2) + 1;
+      }
+      // as pht table as size of bp_entries, check and update it accordigly so it doesn't exceed range
+      if (ghr_new >= bp_entries) {
+          ghr_new = ghr_new - bp_entries;
+      }
+      ghr = ghr_new;
+    }
+};
+
+
+class TournamentBranchPredictor : public BranchPredictorInterface {
+
+  private:
+    UINT64 bp_entries; // branch prediction entries
+    string* pht_array; // pattern history table
+    LocalBranchPredictor* lb_predictor; // get the instance on Local Branch Predictor implemented above 
+    GshareBranchPredictor* gsb_predictor; // get the instance on Gshare Branch Predictor implemented above 
+   
+  public:
+    TournamentBranchPredictor(UINT64 numberOfEntries) {
+      bp_entries = numberOfEntries;
+      // initialize the Local Branch Predictor
+      lb_predictor = new LocalBranchPredictor(numberOfEntries);
+      // initialize the Gshare Branch Predictor
+      gsb_predictor = new GshareBranchPredictor(numberOfEntries);
+      // intialize the pattern history table same size as branch preditor entries and set initial value to "11"
+      pht_array = new string[numberOfEntries];
+      for (UINT64 i = 0; i < numberOfEntries; i++) {
+        pht_array[i] = "11";
+      }
+    };
+    virtual bool getPrediction(ADDRINT branchPC) {
+      // get last n bits or branch program counter based on branch predictor entries
+      UINT64 pht_addr = branchPC % bp_entries;
+      // get the value inside the specific entry of pht table
+      string pht_value = pht_array[pht_addr];
+      // based on the value inside the pht table decide whether to use local branch predictor or gshare branch predictor
+      if (pht_value == "11" || pht_value == "10") {
+        return gsb_predictor->getPrediction(branchPC);
+      } else {
+        return lb_predictor->getPrediction(branchPC);
+      }
+    }
+    virtual void train(ADDRINT branchPC, bool branchWasTaken) {
+      // get last n bits or branch program counter based on branch predictor entries
+      UINT64 pht_addr = branchPC % bp_entries;
+      // get the value inside the specific entry of pht table
+      string pht_value = pht_array[pht_addr];
+      // get the output of local branch predictor 
+      bool lb_pred = lb_predictor->getPrediction(branchPC);
+      // get the output of gshare branch predictor 
+      bool gsb_pred = gsb_predictor->getPrediction(branchPC);
+
+      // if both predictors as incorrect then no changes to PHT
+      if (lb_pred != branchWasTaken && gsb_pred != branchWasTaken) {
+        lb_predictor->train(branchPC, branchWasTaken);
+        gsb_predictor->train(branchPC, branchWasTaken);
+        return;
+      }
+
+      // update the pht table based on whether the branch was taken and it corresponds to the correct branch predictor used 
+      // see report for more detail and flow chart of logic
+      if (pht_value=="11") { // if gshare choosen
+        if (gsb_pred == branchWasTaken) { // if gshare prediction is correct
+          pht_array[pht_addr] = "11"; 
+        } else if (gsb_pred != branchWasTaken && lb_pred == branchWasTaken) { // if gshare prediction in false but local is correct
+            pht_array[pht_addr] = "10";
+        }
+      } else if (pht_value=="10") { // if gshare choosen
+        if (gsb_pred == branchWasTaken) { // if gshare prediction is correct
+          pht_array[pht_addr] = "11";
+        } else if (gsb_pred != branchWasTaken && lb_pred == branchWasTaken) { // if gshare prediction in false but local is correct
+          pht_array[pht_addr] = "01";
+        }
+      } else if (pht_value=="01") { // if local choosen
+        if (lb_pred == branchWasTaken) { // if local prediction is correct
+          pht_array[pht_addr] = "00";
+        } else if (lb_pred != branchWasTaken && gsb_pred == branchWasTaken) { // if local prediction in false but gshare is correct
+          pht_array[pht_addr] = "10";
+        }
+      } else if (pht_value=="00") { // if local choosen
+        if (lb_pred == branchWasTaken) { // if local prediction is correct
+          pht_array[pht_addr] = "00"; 
+        } else if (lb_pred != branchWasTaken && gsb_pred == branchWasTaken) { // if local prediction in false but gshare is correct
+          pht_array[pht_addr] = "01";
+        }
+      }
+      // also train the local and gshare branch predictor at each train iteration
+      lb_predictor->train(branchPC, branchWasTaken);
+      gsb_predictor->train(branchPC, branchWasTaken);
+
+    }
+};
+
+//  * You also need to create an object of branch predictor class in main()
+//  * (i.e. at line 193 in the original unmodified version of this file).
+
 //##############################################################################
 //------------------------------------------------------------------------------
 
@@ -221,18 +449,15 @@ int main(int argc, char * argv[]) {
 //------------------------------------------------------------------------------
   else if (KnobBranchPredictorType.Value() == "local") {
   	 std::cerr << "Using Local BP." << std::endl;
-/* Uncomment when you have implemented a Local branch predictor */
-     // branchPredictor = new LocalBranchPredictor(KnobNumberOfEntriesInBranchPredictor.Value());
+     branchPredictor = new LocalBranchPredictor(KnobNumberOfEntriesInBranchPredictor.Value());
   }
   else if (KnobBranchPredictorType.Value() == "gshare") {
   	 std::cerr << "Using Gshare BP."<< std::endl;
-/* Uncomment when you have implemented a Gshare branch predictor */
-    // branchPredictor = new GshareBranchPredictor(KnobNumberOfEntriesInBranchPredictor.Value());
+    branchPredictor = new GshareBranchPredictor(KnobNumberOfEntriesInBranchPredictor.Value());
   }
   else if (KnobBranchPredictorType.Value() == "tournament") {
   	 std::cerr << "Using Tournament BP." << std::endl;
-/* Uncomment when you have implemented a Tournament branch predictor */
-    // branchPredictor = new TournamentBranchPredictor(KnobNumberOfEntriesInBranchPredictor.Value());
+    branchPredictor = new TournamentBranchPredictor(KnobNumberOfEntriesInBranchPredictor.Value());
   }
   else {
     std::cerr << "Error: No such type of branch predictor. Simulation will be terminated." << std::endl;
