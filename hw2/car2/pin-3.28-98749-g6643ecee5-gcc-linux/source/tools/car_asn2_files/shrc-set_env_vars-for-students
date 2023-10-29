@@ -1,0 +1,8 @@
+setenv PATH $HOME/car2/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/car_asn2_files/tools/pin-3.0-76991-gcc-linux:$PATH
+
+setenv PIN $HOME/car2/pin-3.28-98749-g6643ecee5-gcc-linux/pin 
+setenv CAR2 $HOME/car2/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/car_asn2_files
+setenv PF_EXAMPLE $HOME/car2/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/PrefetchExample
+setenv BENCH_PATH $HOME/car2/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/car_asn2_files/benchmarks
+
+echo "Environment has been set for using Pin."

@@ -1,0 +1,71 @@
+Setup and Installation of BPExample with the Pin Tool :
+
+To compile this file please follow the instructions below.
+
+###########################################################################
+
+# How to launch benchmarks?
+Firstly, source - 
+source $HOME/car2/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/car_asn2_files/shrc-set_env_vars-for-students
+
+The following are commands to launch a benchmark:
+
+1. Micro Benchmark 1
+$BENCH_PATH/microBench1.exe
+
+2. Micro Benchmark 2
+$BENCH_PATH/microBench2.exe
+
+3. Micro Benchmark 3
+$BENCH_PATH/microBench3.exe
+
+###########################################################################
+
+# How to compile the code and use Pin?
+1. source $HOME/car2/pin-3.28-98749-g6643ecee5-gcc-linux/source/tools/car_asn2_files/shrc-set_env_vars-for-students
+
+2. Compile your tool (with a branch predictor) 
+A Pin tool is a dynamic shared library (file with .so filename extension).
+
+NOTE: You don't have write permissions on CAR shared filespace space. 
+      In order to compile your code, please copy the whole pin directory to your home directory. 
+
+make obj-intel64/prefetcher_example.so TARGET=intel64
+
+Last command will create prefetcher_example.so in the directory $PF_EXAMPLE/obj-intel64.
+The file prefetcher_example.so is a tool which implements always taken branch predictor.
+
+To open a file you just compiled use
+vi $PF_EXAMPLE/prefetcher_example.cpp
+
+In order to create your own tool, you need to change the file $PF_EXAMPLE/prefetcher_example.cpp
+and recompile the tool with the following command:
+make obj-intel64/prefetcher_example.so TARGET=intel64
+After this the tool $PF_EXAMPLE/obj-intel64/prefetcher_example.so will be updated with your changes.
+NOTE: 'make' should be launched from $PF_EXAMPLE directory
+
+3. Run Pin with the tool 
+pin -t <tool> <tool options> -- <benchmark>
+
+Any of three benchmarks defined above can be used as a <benchmark> here. For example
+
+$PIN -t $PF_EXAMPLE/obj-intel64/prefetcher_example.so -pref_type next_n_lines -aggr 1 -o stats_bm1_next_n_lines.out \
+-- $BENCH_PATH/microBench1.exe
+
+$PIN -t $PF_EXAMPLE/obj-intel64/prefetcher_example.so -pref_type next_n_lines -aggr 2 -o stats_bm2_next_n_lines.out \
+-- $BENCH_PATH/microBench2.exe
+
+$PIN -t $PF_EXAMPLE/obj-intel64/prefetcher_example.so -pref_type next_n_lines -aggr 3 -o stats_bm2_next_n_lines.out \
+-- $BENCH_PATH/microBench3.exe
+
+###########################################################################
+
+How to submit your code and results? 
+
+1. Submit you work
+   NOTE: Make sure your code works on CADE.
+
+   - Submit the 3 files (prefetcher_example.cpp source code file, results file and PDF of the report)
+   - Make sure that .cpp file inside the $PF_EXAMPLE works fine for all benchmarks.
+
+###########################################################################
