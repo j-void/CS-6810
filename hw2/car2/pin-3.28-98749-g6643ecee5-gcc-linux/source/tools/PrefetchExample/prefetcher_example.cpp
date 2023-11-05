@@ -106,6 +106,178 @@ public:
   }
 };
 
+class StridePrefetcher : public PrefetcherInterface {
+  private:
+    // Reference Prediction Table
+    UINT64 RPT[64][4] = {0};
+    UINT64 numberOfEntries = 0; // number of entries in the RPT - initially no entry added
+    int entryIdx = -1; // index in RPT for corresponding PC
+    // States -> Initial=0; Transient=1; Steady=2; No prediction=3
+
+
+  public:
+    void prefetch(ADDRINT addr, ADDRINT loadPC) {
+      // the index of RPT
+      entryIdx = -1;
+      for (UINT64 rpt_idx = 0; rpt_idx < numberOfEntries; rpt_idx++) { // loop over the entries of RPT
+        if (RPT[rpt_idx][0] == loadPC) { //if entry present in RPT
+          entryIdx = rpt_idx; // update the entryIdx as we found PC
+          UINT64 pred_addr = RPT[rpt_idx][1] + RPT[rpt_idx][2];
+          // begin prefetching only if the state is stable and prediction is correct
+          // NOTE check if we need RPT[rpt_idx][3] == 2 or RPT[rpt_idx][3] != 3
+          if (pred_addr == addr) { // correct prediction
+            if (RPT[rpt_idx][3] == 2) { // correct state
+              for (int i = 1; i <= aggression; i++) {
+                UINT64 nextAddr = addr + i * blockSize;
+                if (!cache->exists(nextAddr)) {  
+                    cache->prefetchFillLine(nextAddr); 
+                    prefetches++;
+                }
+              }              
+            }
+          }
+          break; // found the entry so no need to look further
+        }
+      }
+    }
+
+    void train(ADDRINT addr, ADDRINT loadPC) {
+
+      if (entryIdx==-1) { // add the entry in RPT as PC not in RPT
+        UINT64 entryToReplace = 0; // which entry to replace
+        if (numberOfEntries >= 64) { // if RPT is full the replace randomly
+          entryToReplace = rand()%64;
+        } else { // else add the entry in RPT
+          entryToReplace = numberOfEntries;
+          numberOfEntries++;
+        }
+
+        RPT[entryToReplace][0] = loadPC; //set load PC
+        RPT[entryToReplace][1] = addr; // set the previous addr to current addr
+        RPT[entryToReplace][2] = 0; // set the stride to 0
+        RPT[entryToReplace][3] = 0; // intial state
+      } else {
+        // we found the entry in the RPT - PC present can use the same index from prefetch
+        UINT64 prev_addr = RPT[entryIdx][1]; // previous addr
+        UINT64 pred_addr = prev_addr + RPT[entryIdx][2]; // predicted addr = previous addr + stride
+        if (RPT[entryIdx][3] == 0) { // if in initial state
+          if (addr == pred_addr) { // if prediction correct
+            RPT[entryIdx][3] = 2; // change to steady state
+            RPT[entryIdx][1] = addr; // update the previous address
+          } else { // if prediction incorrect
+            RPT[entryIdx][3] = 1; // change to Transient state
+            RPT[entryIdx][2] = addr - prev_addr; // update the stride
+            RPT[entryIdx][1] = addr; // update the previous address
+          }
+        } else if (RPT[entryIdx][3] == 1) { // if in Transient state
+          if (addr == pred_addr) { // if prediction correct
+            RPT[entryIdx][3] = 2; // change to steady state
+            RPT[entryIdx][1] = addr; // update the previous address
+          } else { // if prediction incorrect
+            RPT[entryIdx][3] = 3; // change to No prediction state
+            RPT[entryIdx][2] = addr - prev_addr; // update the stride
+            RPT[entryIdx][1] = addr; // update the previous address
+          }
+        } else if (RPT[entryIdx][3] == 2) { // if in Steady state
+          if (addr == pred_addr) { // if prediction correct
+            RPT[entryIdx][1] = addr + (aggression * blockSize); // update the previous address to address of last prefetched block
+          } else { // if prediction incorrect
+            RPT[entryIdx][3] = 0; // change to Initial state
+            RPT[entryIdx][1] = addr; // update the previous address
+          }
+        } else if (RPT[entryIdx][3] == 3) { // if in No prediction state
+          if (addr == pred_addr) { // if prediction correct
+            RPT[entryIdx][3] = 1; // change to Transient state
+            RPT[entryIdx][1] = addr; // update the previous address
+          } else { // if prediction incorrect
+            RPT[entryIdx][2] = addr - prev_addr; // update the stride
+            RPT[entryIdx][1] = addr; // update the previous address
+          }
+        }
+      }
+
+      
+      
+    }
+};
+
+
+class DistancePrefetcher : public PrefetcherInterface {
+  private:
+    UINT64 prev_addr = 0; // previous miss address
+    INT64 prev_dist = 0; // previous distance
+    INT64** RPT = new INT64*[64]; // Reference Prediction Table
+    INT64 numberOfEntries = 0; // number of entries in RPT
+    bool entryFound; // for every prefetch if the entry is found in RPT
+
+  public:
+    void prefetch(ADDRINT addr, ADDRINT loadPC) {
+
+      INT64 new_dist = addr - prev_addr; // get the new distance
+      entryFound = FALSE; // initially set to false for every prefetch
+
+      for (INT64 k = 0; k < numberOfEntries; k++) { // loop over RPT
+        if (RPT[k][0] == new_dist) { // check if the entry found
+          entryFound = TRUE; // in train no need to add the entry
+          for (int i = 1; i <= aggression; i++) { // prefetch
+            if (RPT[k][i] != 0) { // don't need but helps
+              UINT64 nextAddr = addr + RPT[k][i]; // get all the predicted addresses
+              if (!cache->exists(nextAddr)) {  
+                  cache->prefetchFillLine(nextAddr); 
+                  prefetches++;
+              }
+            } 
+          }
+        }
+      }
+
+    }
+
+    void train(ADDRINT addr, ADDRINT loadPC) {
+      INT64 new_dist = addr - prev_addr; // get the new distance
+
+      if (entryFound==FALSE) { // add the entry in RPT corresponding to new dist as it is not present
+        INT64 entryToReplace = 0; // which entry to replace
+        if (numberOfEntries >= 64) { // if RPT is full the replace randomly
+          entryToReplace = rand()%64;
+        } else { // else add the entry in RPT
+          entryToReplace = numberOfEntries;
+          numberOfEntries++;
+        }
+        RPT[entryToReplace] = new INT64[aggression+1]; // initialize the predicted distances
+        for (int i=1 ; i <= aggression ; i++) {
+            RPT[entryToReplace][i] = 0;
+          }
+        RPT[entryToReplace][0] = new_dist; // set distance tag
+      }
+
+      // newly observed distance must be added as a predicted distance to the RPT entry that refers to the previous distance
+      for (INT64 k = 0; k < numberOfEntries; k++) {
+        if (RPT[k][0] == prev_dist) { // check if the prev distance entry is present in RPT
+          bool pdFull = TRUE; // flag to check if any of the predicted distance is empty
+          for (int i=1 ; i <= aggression ; i++) {
+            if (RPT[k][i] == 0) {
+              RPT[k][i] = new_dist;
+              pdFull = FALSE;
+              break;
+            }
+          }
+
+          if (pdFull == TRUE) { // if predicted distance not empty then replace randomly
+            int indexToReplace = rand() % aggression+1; 
+            RPT[k][indexToReplace] = new_dist;
+          }
+
+        }
+      }
+
+      prev_addr = addr;
+      prev_dist = new_dist;
+
+    }
+};
+
+
 //---------------------------------------------------------------------
 //##############################################
 /*
@@ -240,10 +412,10 @@ int main(int argc, char *argv[])
         prefetcher = new NextNLinePrefetcher();
     } else if (prefetcherName == "stride") {
         // Uncomment when you implement the stride prefetcher
-        // prefetcher = new StridePrefetcher();
+        prefetcher = new StridePrefetcher();
     } else if (prefetcherName == "distance") {
         // Uncomment when you implement the distance prefetcher
-        // prefetcher = new DistancePrefetcher();
+        prefetcher = new DistancePrefetcher();
     } else {
         std::cerr << "Error: No such type of prefetcher. Simulation will be terminated." << std::endl;
         std::exit(EXIT_FAILURE);
