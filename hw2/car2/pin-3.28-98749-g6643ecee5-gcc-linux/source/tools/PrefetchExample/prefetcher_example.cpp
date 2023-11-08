@@ -203,21 +203,22 @@ class StridePrefetcher : public PrefetcherInterface {
 };
 
 
+// NOTE: For some reason the microbenchmark2 results are fluctuating a lot, this doens't happen with other benchmarks
 class DistancePrefetcher : public PrefetcherInterface {
   private:
     UINT64 prev_addr = 0; // previous miss address
-    UINT64 prev_dist = 0; // previous distance
-    UINT64** RPT = new UINT64*[64]; // Reference Prediction Table
-    UINT64 numberOfEntries = 0; // number of entries in RPT
+    INT64 prev_dist = 0; // previous distance
+    INT64** RPT = new INT64*[64]; // Reference Prediction Table
+    INT64 numberOfEntries = 0; // number of entries in RPT
     bool entryFound; // for every prefetch if the entry is found in RPT
 
   public:
     void prefetch(ADDRINT addr, ADDRINT loadPC) {
 
-      UINT64 new_dist = addr - prev_addr; // get the new distance
+      INT64 new_dist = addr - prev_addr; // get the new distance
       entryFound = FALSE; // initially set to false for every prefetch
 
-      for (UINT64 k = 0; k < numberOfEntries; k++) { // loop over RPT
+      for (INT64 k = 0; k < numberOfEntries; k++) { // loop over RPT
         if (RPT[k][0] == new_dist) { // check if the entry found
           entryFound = TRUE; // in train no need to add the entry
           for (int i = 1; i <= aggression; i++) { // prefetch
@@ -235,17 +236,17 @@ class DistancePrefetcher : public PrefetcherInterface {
     }
 
     void train(ADDRINT addr, ADDRINT loadPC) {
-      UINT64 new_dist = addr - prev_addr; // get the new distance
+      INT64 new_dist = addr - prev_addr; // get the new distance
 
       if (entryFound==FALSE) { // add the entry in RPT corresponding to new dist as it is not present
-        UINT64 entryToReplace = 0; // which entry to replace
+        INT64 entryToReplace = 0; // which entry to replace
         if (numberOfEntries >= 64) { // if RPT is full the replace randomly
           entryToReplace = rand()%64;
         } else { // else add the entry in RPT
           entryToReplace = numberOfEntries;
           numberOfEntries++;
         }
-        RPT[entryToReplace] = new UINT64[aggression+1]; // initialize the predicted distances
+        RPT[entryToReplace] = new INT64[aggression+1]; // initialize the predicted distances
         for (int i=1 ; i <= aggression ; i++) {
             RPT[entryToReplace][i] = 0;
           }
@@ -253,7 +254,7 @@ class DistancePrefetcher : public PrefetcherInterface {
       }
 
       // newly observed distance must be added as a predicted distance to the RPT entry that refers to the previous distance
-      for (UINT64 k = 0; k < numberOfEntries; k++) {
+      for (INT64 k = 0; k < numberOfEntries; k++) {
         if (RPT[k][0] == prev_dist) { // check if the prev distance entry is present in RPT
           bool pdFull = TRUE; // flag to check if any of the predicted distance is empty
           for (int i=1 ; i <= aggression ; i++) {
