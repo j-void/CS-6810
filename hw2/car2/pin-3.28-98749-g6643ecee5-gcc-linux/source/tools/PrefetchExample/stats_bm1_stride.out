@@ -1,7 +1,7 @@
 The program has completed execution
 The checkpoint has been reached
-Accesses: 42279703 Loads: 38437368 Stores: 3842335
-Hits: 34486445
-Hit rate: 0.815674
-Prefetches: 9796370
-Successful prefetches: 3174533
+Accesses: 43480706 Loads: 39037369 Stores: 4443337
+Hits: 33539103
+Hit rate: 0.771356
+Prefetches: 5804292
+Successful prefetches: 2636759

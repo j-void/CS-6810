@@ -1,23 +1,23 @@
-Benchmark1 Stride 1: 
-Benchmark1 Stride 3: 
-Benchmark1 Stride 10: 
-Benchmark1 Distance 1: 
-Benchmark1 Distance 3: 
-Benchmark1 Distance 10: 
+Benchmark1 Stride 1: 0.756854
+Benchmark1 Stride 3: 0.768636
+Benchmark1 Stride 10: 0.626434
+Benchmark1 Distance 1: 0.766973
+Benchmark1 Distance 3: 0.815348
+Benchmark1 Distance 10: 0.837234
 
-Benchmark2 Stride 1: 
-Benchmark2 Stride 3: 
-Benchmark2 Stride 10: 
-Benchmark2 Distance 1: 
-Benchmark2 Distance 3: 
-Benchmark2 Distance 10: 
+Benchmark2 Stride 1: 0.704669
+Benchmark2 Stride 3: 0.707929
+Benchmark2 Stride 10: 0.706982
+Benchmark2 Distance 1: 0.744206
+Benchmark2 Distance 3: 0.768065
+Benchmark2 Distance 10: 0.777455
 
-Benchmark3 Stride 1: 
-Benchmark3 Stride 3: 
-Benchmark3 Stride 10: 
-Benchmark3 Distance 1: 
-Benchmark3 Distance 3: 
-Benchmark3 Distance 10: 
+Benchmark3 Stride 1: 0.762686
+Benchmark3 Stride 3: 0.761171
+Benchmark3 Stride 10: 0.640827
+Benchmark3 Distance 1: 0.771407
+Benchmark3 Distance 3: 0.816729
+Benchmark3 Distance 10: 0.838004
 
 Note:
 - The columns are benchmark name, prefetcher name, aggression value.

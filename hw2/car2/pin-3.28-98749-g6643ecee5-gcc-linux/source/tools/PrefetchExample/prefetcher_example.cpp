@@ -128,7 +128,7 @@ class StridePrefetcher : public PrefetcherInterface {
           if (pred_addr == addr) { // correct prediction
             if (RPT[rpt_idx][3] == 2) { // correct state
               for (int i = 1; i <= aggression; i++) {
-                UINT64 nextAddr = addr + i * blockSize;
+                UINT64 nextAddr = addr + i * RPT[rpt_idx][2];
                 if (!cache->exists(nextAddr)) {  
                     cache->prefetchFillLine(nextAddr); 
                     prefetches++;
@@ -180,7 +180,8 @@ class StridePrefetcher : public PrefetcherInterface {
           }
         } else if (RPT[entryIdx][3] == 2) { // if in Steady state
           if (addr == pred_addr) { // if prediction correct
-            RPT[entryIdx][1] = addr + (aggression * blockSize); // update the previous address to address of last prefetched block
+            // // This part for updating is sort of confusing and different mediums provide different interpretation
+            RPT[entryIdx][1] = addr + (aggression * RPT[entryIdx][2]); // update the previous address to address of last prefetched block
           } else { // if prediction incorrect
             RPT[entryIdx][3] = 0; // change to Initial state
             RPT[entryIdx][1] = addr; // update the previous address
@@ -205,18 +206,18 @@ class StridePrefetcher : public PrefetcherInterface {
 class DistancePrefetcher : public PrefetcherInterface {
   private:
     UINT64 prev_addr = 0; // previous miss address
-    INT64 prev_dist = 0; // previous distance
-    INT64** RPT = new INT64*[64]; // Reference Prediction Table
-    INT64 numberOfEntries = 0; // number of entries in RPT
+    UINT64 prev_dist = 0; // previous distance
+    UINT64** RPT = new UINT64*[64]; // Reference Prediction Table
+    UINT64 numberOfEntries = 0; // number of entries in RPT
     bool entryFound; // for every prefetch if the entry is found in RPT
 
   public:
     void prefetch(ADDRINT addr, ADDRINT loadPC) {
 
-      INT64 new_dist = addr - prev_addr; // get the new distance
+      UINT64 new_dist = addr - prev_addr; // get the new distance
       entryFound = FALSE; // initially set to false for every prefetch
 
-      for (INT64 k = 0; k < numberOfEntries; k++) { // loop over RPT
+      for (UINT64 k = 0; k < numberOfEntries; k++) { // loop over RPT
         if (RPT[k][0] == new_dist) { // check if the entry found
           entryFound = TRUE; // in train no need to add the entry
           for (int i = 1; i <= aggression; i++) { // prefetch
@@ -234,17 +235,17 @@ class DistancePrefetcher : public PrefetcherInterface {
     }
 
     void train(ADDRINT addr, ADDRINT loadPC) {
-      INT64 new_dist = addr - prev_addr; // get the new distance
+      UINT64 new_dist = addr - prev_addr; // get the new distance
 
       if (entryFound==FALSE) { // add the entry in RPT corresponding to new dist as it is not present
-        INT64 entryToReplace = 0; // which entry to replace
+        UINT64 entryToReplace = 0; // which entry to replace
         if (numberOfEntries >= 64) { // if RPT is full the replace randomly
           entryToReplace = rand()%64;
         } else { // else add the entry in RPT
           entryToReplace = numberOfEntries;
           numberOfEntries++;
         }
-        RPT[entryToReplace] = new INT64[aggression+1]; // initialize the predicted distances
+        RPT[entryToReplace] = new UINT64[aggression+1]; // initialize the predicted distances
         for (int i=1 ; i <= aggression ; i++) {
             RPT[entryToReplace][i] = 0;
           }
@@ -252,7 +253,7 @@ class DistancePrefetcher : public PrefetcherInterface {
       }
 
       // newly observed distance must be added as a predicted distance to the RPT entry that refers to the previous distance
-      for (INT64 k = 0; k < numberOfEntries; k++) {
+      for (UINT64 k = 0; k < numberOfEntries; k++) {
         if (RPT[k][0] == prev_dist) { // check if the prev distance entry is present in RPT
           bool pdFull = TRUE; // flag to check if any of the predicted distance is empty
           for (int i=1 ; i <= aggression ; i++) {
@@ -264,10 +265,9 @@ class DistancePrefetcher : public PrefetcherInterface {
           }
 
           if (pdFull == TRUE) { // if predicted distance not empty then replace randomly
-            int indexToReplace = rand() % aggression+1; 
+            int indexToReplace = rand() % aggression + 1; 
             RPT[k][indexToReplace] = new_dist;
           }
-
         }
       }
 
@@ -276,6 +276,86 @@ class DistancePrefetcher : public PrefetcherInterface {
 
     }
 };
+
+// #include <map>
+//  ///  Using map
+// class DistancePrefetcher : public PrefetcherInterface {
+//   private:
+//     UINT64 prev_addr = 0; // previous miss address
+//     INT64 prev_dist = 0; // previous distance
+//     map<INT64, INT64*> RPT; // Reference Prediction Table
+//     INT64 all_distances[64] = {0}; // number of entries in RPT
+//     bool entryFound; // for every prefetch if the entry is found in RPT
+//     INT64 new_dist = 0;
+    
+//   public:
+//     void prefetch(ADDRINT addr, ADDRINT loadPC) {
+
+//       new_dist = addr - prev_addr; // get the new distance
+//       entryFound = FALSE; // initially set to false for every prefetch
+//       auto search = RPT.find(new_dist);
+//       if (search != RPT.end()) {
+//         entryFound = TRUE;
+//         for (int i = 0; i < aggression; i++) { // prefetch
+//             UINT64 nextAddr = addr + RPT[new_dist][i]; // get all the predicted addresses
+//             if (!cache->exists(nextAddr)) {  
+//                 cache->prefetchFillLine(nextAddr); 
+//                 prefetches++;
+//             }
+//             cout << "prefetch here: " << nextAddr << endl;
+//           }
+          
+//       }
+//       cout << "checking-> new_dist = " << new_dist << ", prev_dist = " << prev_dist << endl;
+//     }
+
+//     void train(ADDRINT addr, ADDRINT loadPC) {
+//       // INT64 new_dist = addr - prev_addr; // get the new distance
+      
+//       // newly observed distance must be added as a predicted distance to the RPT entry that refers to the previous distance
+//       // auto search = RPT.find(prev_dist);
+//       if (RPT.empty() == FALSE) {
+//         cout << "Append Before: " << prev_dist << ": "<< RPT[prev_dist][0] << " , "<< RPT[prev_dist][1] << " , "<< RPT[prev_dist][2] << endl;
+//         bool pdFull = TRUE; // flag to check if any of the predicted distance is empty
+//         for (int i=0 ; i < aggression ; i++) {
+//           if (RPT[prev_dist][i] == 0) {
+//             RPT[prev_dist][i] = new_dist;
+//             pdFull = FALSE;
+//             break;
+//           }
+//         }
+//         if (pdFull == TRUE) { // if predicted distance not empty then replace randomly
+//           int indexToReplace = rand() % aggression; 
+//           cout << "indexToReplace: " << indexToReplace << endl;
+//           RPT[prev_dist][indexToReplace] = new_dist;
+//         }
+//         cout << "Append After: " << prev_dist << ": "<< RPT[prev_dist][0] << " , "<< RPT[prev_dist][1] << " , "<< RPT[prev_dist][2] << endl;
+//       }
+
+
+//       if (entryFound==FALSE) { // add the entry in RPT corresponding to new dist as it is not present
+//         INT64 entryToReplace = RPT.size();
+//         if (entryToReplace >= 64) { // if RPT is full the replace randomly
+//           entryToReplace = rand()%64;
+//           RPT.erase(all_distances[entryToReplace]);
+//         } 
+//         RPT[new_dist] = new INT64[aggression]; // initialize the predicted distances
+//         for (int i=0 ; i < aggression ; i++) {
+//           RPT[new_dist][i] = 0;
+//         }
+//         all_distances[entryToReplace] = new_dist;
+//         cout << "Entry: " << new_dist << ": "<< RPT[new_dist][0] << " , "<< RPT[new_dist][1] << " , "<< RPT[new_dist][2] << endl;
+//       }
+
+      
+//       // cout << "t->" << prev_dist << ": "<< RPT[prev_dist][0] << " , "<< RPT[prev_dist][1] << " , "<< RPT[prev_dist][2] << endl;
+
+//       // cout << "prev_addr:" << prev_addr << ", prev_dist: " << prev_dist << endl;
+//       prev_addr = addr;
+//       prev_dist = new_dist;
+
+//     }
+// };
 
 
 //---------------------------------------------------------------------
